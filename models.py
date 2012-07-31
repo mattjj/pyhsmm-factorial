@@ -1,4 +1,5 @@
 from __future__ import division
+import numpy as np
 
 import pyhsmm
 
@@ -39,7 +40,7 @@ class factorial(object):
         for c in self.component_models:
             c.resample()
 
-    def generate(self,T,keep=True): # TODO
+    def generate(self,T,keep=True): # TODO TODO
         # this will be good for synthetic data testing
         raise NotImplementedError
 
@@ -52,30 +53,67 @@ class factorial(object):
 #  classes for the component models  #
 ######################################
 
-# TODO TODO added states should get a ref to the cached means and vars
-# these things need to handle setting up mubin and sigmabin in the obs_distns
-
+# NOTE: component_models must have scalar gaussian observation
+# distributions! this code, which references the same cached means and vars as
+# the states, requires it!
 class factorial_component_hsmm(pyhsmm.models.hsmm):
-    means = None
-    vars = None
+    def __init__(self,**kwargs): # no explicit parameter naming because DRY
+        assert 'obs_distns' in kwargs
+        obs_distns = kwargs['obs_distns']
+        self.means, self.vars = np.zeros(len(obs_distns)), np.zeros(len(obs_distns))
+        for idx, distn in enumerate(obs_distns):
+            assert isinstance(distn,pyhsmm.distributions.observations.scalar_gaussian),\
+                    'Factorial model components must have scalar Gaussian observation distributions!'
+            distn.mubin = self.means[idx,...]
+            distn.sigmasqbin = self.vars[idx,...]
+        super(factorial_component_hsmm,self).__init__()
+
     def add_factorial_sumdata(self,data,**kwargs):
-        self.states_list.append(pyhsmm.plugins.factorial.states.factorial_component_hsmm_states(data,**kwargs))
+        assert data.ndim == 1 or data.ndim == 2
+        data = np.reshape(data,(-1,1))
+        self.states_list.append(
+                pyhsmm.plugins.factorial.states.factorial_component_hsmm_states(
+                    data=data,
+                    means=self.means,
+                    vars=self.vars,
+                    T=data.shape[0],
+                    state_dim=len(self.obs_distns),
+                    obs_distns=self.obs_distns,
+                    dur_distns=self.dur_distns,
+                    transition_distn=self.trans_distn,
+                    initial_distn=self.init_state_distn,
+                    trunc=self.trunc,
+                    **kwargs))
 
-class factorial_component_hsmm_possiblechangepoints(pyhsmm.models.hsmm):
-    means = None
-    vars = None
+class factorial_component_hsmm_possiblechangepoints(factorial_component_hsmm):
     def add_factorial_sumdata(self,data,changepoints,**kwargs):
-        self.states_list.append(pyhsmm.plugins.factorial.states.factorial_component_hsmm_states_possiblechangepoints(data,changepoints,**kwargs))
+        assert data.ndim == 1 or data.ndim == 2
+        data = np.reshape(data,(-1,1))
+        self.states_list.append(
+                pyhsmm.plugins.factorial.states.factorial_component_hsmm_states(
+                    data=data,
+                    changepoints=changepoints,
+                    means=self.means,
+                    vars=self.vars,
+                    T=data.shape[0],
+                    state_dim=len(self.obs_distns),
+                    obs_distns=self.obs_distns,
+                    dur_distns=self.dur_distns,
+                    transition_distn=self.trans_distn,
+                    initial_distn=self.init_state_distn,
+                    trunc=self.trunc,
+                    **kwargs))
 
+# TODO hmm versions below here
 
-class factorial_component_hmm(pyhsmm.models.hmm):
-    means = None
-    vars = None
-    def add_factorial_sumdata(self,data,**kwargs):
-        self.states_list.append(pyhsmm.plugins.factorial.states.factorial_component_hmm_states(data,**kwargs))
+# class factorial_component_hmm(pyhsmm.models.hmm):
+#     means = None
+#     vars = None
+#     def add_factorial_sumdata(self,data,**kwargs):
+#         self.states_list.append(pyhsmm.plugins.factorial.states.factorial_component_hmm_states(data,**kwargs))
 
-class factorial_component_hmm_possiblechangepoints(pyhsmm.models.hmm):
-    means = None
-    vars = None
-    def add_factorial_sumdata(self,data,changepoints,**kwargs):
-        self.states_list.append(pyhsmm.plugins.factorial.states.factorial_component_hmm_states_possiblechangepoints(data,changepoints,**kwargs))
+# class factorial_component_hmm_possiblechangepoints(pyhsmm.models.hmm):
+#     means = None
+#     vars = None
+#     def add_factorial_sumdata(self,data,changepoints,**kwargs):
+#         self.states_list.append(pyhsmm.plugins.factorial.states.factorial_component_hmm_states_possiblechangepoints(data,changepoints,**kwargs))

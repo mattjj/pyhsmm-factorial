@@ -29,7 +29,7 @@ class factorial_allstates(object):
         self.museqs = np.zeros((len(self.component_models),data.shape[0]))
         self.varseqs = np.zeros((len(self.component_models),data.shape[0]))
         for idx, (c,s) in enumerate(zip(component_models,self.states_list)):
-            self.museqs[idx] = c.means[s.stateseq] # TODO make the component models keep these refs
+            self.museqs[idx] = c.means[s.stateseq]
             self.varseqs[idx] = c.vars[s.stateseq]
 
         # build eigen codestr
@@ -77,7 +77,8 @@ class factorial_allstates(object):
         post_meanseq = meanseq + varseq * ((self.data - meanseq.sum(1)[:,na]) / tots)
 
         for t in range(T):
-            contributions[t] = np.dot(np.linalg.cholesky(np.diag(varseq[t]) - 1./tots[t] * np.outer(varseq[t],varseq[t])),np.random.randn(K)) + post_meanseq[t]
+            contributions[t] = np.dot(np.linalg.cholesky(np.diag(varseq[t]) -
+                1./tots[t] * np.outer(varseq[t],varseq[t])),np.random.randn(K)) + post_meanseq[t]
 
         return contributions
 
@@ -92,7 +93,8 @@ class factorial_allstates(object):
         tots = varseq.sum(1)[:,na] + temp_noise
         post_meanseq = meanseq + varseq * ((self.data - meanseq.sum(1)[:,na]) / tots)
 
-        scipy.weave.inline(self.codestr,['varseq','meanseq','post_meanseq','G','contributions','temp_noise'],headers=['<Eigen/Core>'],include_dirs=['/usr/local/include/eigen3'],extra_compile_args=['-O3'])
+        scipy.weave.inline(self.codestr,['varseq','meanseq','post_meanseq','G','contributions','temp_noise'],
+                headers=['<Eigen/Core>'],include_dirs=['/usr/local/include/eigen3'],extra_compile_args=['-O3'])
 
         return contributions
 
@@ -112,10 +114,15 @@ class factorial_allstates(object):
 # factorial_allstates objects tells them to be resampled
 
 # NOTE: component_models must have scalar gaussian observation
-# distributions! the cached means and vars assume it!
-# TODO can add init methods that assert as much
+# distributions! this code, which references the same cached means and vars as
+# the models, requires it!
 
 class factorial_component_hsmm_states(pyhsmm.internals.states.hsmm_states_python):
+    def __init__(self,data,means,vars,**kwargs):
+        self.means = means
+        self.vars = vars
+        super(factorial_component_hsmm_states,self).__init__(data,**kwargs)
+
     def resample(self):
         pass
 
@@ -127,8 +134,6 @@ class factorial_component_hsmm_states(pyhsmm.internals.states.hsmm_states_python
     # NOTE: component_models must have scalar gaussian observation
     # distributions! this code requires it!
     def get_aBl(self,data):
-        assert data.ndim == 2
-
         mymeans = self.means # 1D, length state_dim
         myvars = self.vars # 1D, length state_dim
 
@@ -141,44 +146,66 @@ class factorial_component_hsmm_states(pyhsmm.internals.states.hsmm_states_python
         return -0.5*(data - sumothermeansseq - mymeans)**2/sigmasq - np.log(np.sqrt(2*np.pi*sigmasq))
 
 class factorial_component_hsmm_states_possiblechangepoints(
-        pyhsmm.internals.states.hsmm_states_possiblechangepoints):
-    def resample(self):
-        pass
+        factorial_component_hsmm_states,
+        pyhsmm.internals.states.hsmm_states_possiblechangepoints
+        ):
+    # NOTE: this multiple-inheritance forms the diamond patern:
+    #                   hsmm_states_python
+    #                      /            \
+    #                     /              \
+    # factorial_component_hsmm_states    hsmm_states_possiblechangepoints
+    #                      \             /
+    #                       \           /
+    #                        this class
+    #
+    # you can check by importing and checking thisclassname.__mro__, which will
+    # list the two middle levels before the top level
+    # it will make sure factorial_component_hsmm_states's get_aBl is called
+    # and hsmm_states_possiblechangepoints's messages_backwards is called
+    # still need to explicitly ask for hsmm_states_posschange's init method
 
-    def resample_factorial(self,temp_noise=0.):
-        self.temp_noise = temp_noise
-        super(factorial_component_hsmm_states,self).resample()
-        del self.temp_noise
+    def __init__(self,data,changepoints,means,vars,**kwargs):
+        self.means = means
+        self.vars = vars
+        pyhsmm.internals.states.hsmm_states_possiblechangepoints.__init__(self,data,changepoints,**kwargs)
 
     def get_aBL(self,data):
-        raise NotImplementedError
+        aBBl = np.zeros((len(self.blocks),self.state_dim))
+        aBl = super(factorial_component_hsmm_states_possiblechangepoints,self).get_aBl(data)
+        for idx, (start,end) in enumerate(self.blocks):
+            aBBl[idx] = aBl[start:end].sum(0)
+        self.aBBl = aBBl
+        return None
 
-# TODO below here
 
-class factorial_component_hmm_states(pyhsmm.internals.states.hmm_states_python):
-    def resample(self):
-        pass
+# TODO hmm versions below here
 
-    def resample_factorial(self,temp_noise=0.):
-        self.temp_noise = temp_noise
-        super(factorial_component_hsmm_states,self).resample()
-        del self.temp_noise
+# class factorial_component_hmm_states(pyhsmm.internals.states.hmm_states_python):
+#     def resample(self):
+#         pass
 
-    def get_aBL(self,data):
-        raise NotImplementedError
+#     def resample_factorial(self,temp_noise=0.):
+#         self.temp_noise = temp_noise
+#         super(factorial_component_hsmm_states,self).resample()
+#         del self.temp_noise
 
-class factorial_component_hmm_states_possiblechangepoints(
-        pyhsmm.internals.states.hmm_states_possiblechangepoints):
-    def resample(self):
-        pass
+#     def get_abl(self,data):
+#         raise notimplementederror
 
-    def resample_factorial(self,temp_noise=0.):
-        self.temp_noise = temp_noise
-        super(factorial_component_hsmm_states,self).resample()
-        del self.temp_noise
+# class factorial_component_hmm_states_possiblechangepoints(
+#         factorial_component_hmm_states,
+#         pyhsmm.internals.states.hmm_states_possiblechangepoints
+#         ):
+#     def resample(self):
+#         pass
 
-    def get_aBl(self,data):
-        raise NotImplementedError
+#     def resample_factorial(self,temp_noise=0.):
+#         self.temp_noise = temp_noise
+#         super(factorial_component_hsmm_states,self).resample()
+#         del self.temp_noise
+
+#     def get_aBl(self,data):
+#         raise NotImplementedError
 
 
 ########################
