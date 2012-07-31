@@ -132,10 +132,10 @@ class factorial_allstates(object):
 # the models, requires it!
 
 class factorial_component_hsmm_states(pyhsmm.internals.states.hsmm_states_python):
-    def __init__(self,data,means,vars,**kwargs):
+    def __init__(self,means,vars,**kwargs):
         self.means = means
         self.vars = vars
-        super(factorial_component_hsmm_states,self).__init__(data,**kwargs)
+        super(factorial_component_hsmm_states,self).__init__(**kwargs)
 
     def resample(self):
         pass
@@ -178,10 +178,11 @@ class factorial_component_hsmm_states_possiblechangepoints(
     # and hsmm_states_possiblechangepoints's messages_backwards is called
     # still need to explicitly ask for hsmm_states_posschange's init method
 
-    def __init__(self,data,changepoints,means,vars,**kwargs):
+    def __init__(self,means,vars,**kwargs):
+        assert 'changepoints' in kwargs, 'must pass in a changepoints argument!'
         self.means = means
         self.vars = vars
-        pyhsmm.internals.states.hsmm_states_possiblechangepoints.__init__(self,data,changepoints,**kwargs)
+        pyhsmm.internals.states.hsmm_states_possiblechangepoints.__init__(self,**kwargs)
 
     def get_aBL(self,data):
         aBBl = np.zeros((len(self.blocks),self.state_dim))
