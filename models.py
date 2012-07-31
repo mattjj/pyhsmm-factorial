@@ -1,11 +1,11 @@
 from __future__ import division
-import numpy as np
-from matplotlib import pyplot as plt
-from matplotlib import cm
-from warnings import warn
-import copy
 
 import pyhsmm
+
+###################################
+#  overall problem wrapper class  #
+###################################
+
 
 class factorial(object):
     def __init__(self,component_models):
@@ -39,24 +39,32 @@ class factorial(object):
         for c in self.component_models:
             c.resample()
 
-    def generate(self,T,keep=True):
+    def generate(self,T,keep=True): # TODO
         # this will be good for synthetic data testing
         raise NotImplementedError
 
-    def plot(self,color=None):
+    def plot(self,color=None): # TODO
         # this is ALWAYS useful
         raise NotImplementedError
 
 
-# TODO these two could be summarized via a metaclass, I think
+######################################
+#  classes for the component models  #
+######################################
+
 class factorial_component_hsmm(pyhsmm.models.hsmm):
-    # just one extra method for addng special factorial states objects
-    def add_factorial_sumdata(self): # TODO
-        raise NotImplementedError
+    def add_factorial_sumdata(self,data,**kwargs):
+        self.states_list.append(pyhsmm.plugins.factorial.states.factorial_component_hsmm_states(data,**kwargs))
+
+class factorial_component_hsmm_possiblechangepoints(pyhsmm.models.hsmm):
+    def add_factorial_sumdata(self,data,changepoints,**kwargs):
+        self.states_list.append(pyhsmm.plugins.factorial.states.factorial_component_hsmm_states_possiblechangepoints(data,changepoints,**kwargs))
+
 
 class factorial_component_hmm(pyhsmm.models.hmm):
-    # just one extra method for addng special factorial states objects
-    def add_factorial_sumdata(self): # TODO
-        raise NotImplementedError
+    def add_factorial_sumdata(self,data,**kwargs):
+        self.states_list.append(pyhsmm.plugins.factorial.states.factorial_component_hmm_states(data,**kwargs))
 
-# TODO add possiblechangepoints classes?
+class factorial_component_hmm_possiblechangepoints(pyhsmm.models.hmm):
+    def add_factorial_sumdata(self,data,changepoints,**kwargs):
+        self.states_list.append(pyhsmm.plugins.factorial.states.factorial_component_hmm_states_possiblechangepoints(data,changepoints,**kwargs))
