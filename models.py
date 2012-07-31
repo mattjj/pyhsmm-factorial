@@ -28,26 +28,31 @@ class factorial(object): # not analogous to any other kind of model, no inherita
                     component_models=self.component_models,
                     **kwargs))
 
-    def resample(self,**kwargs):
-        # tell each states object to resample each of its component state chains
-        # (marginalizing out the component emissions)
-        # this call will also delete any instantiated component emissions (in
-        # principle)
-        # kwargs is for any temperature schedule stuff
-        for s in self.states_list:
-            s.resample(**kwargs)
+    def resample(self,niter=25,max_extra_noise=1000.):
+        # set up a temperature schedule
+        temps = np.zeros(niter)
+        cutofftime = int(3./4 * len(temps))
+        temps[:cutofftime] = max_extra_noise/2 * (1+np.cos(np.linspace(0,np.pi,cutofftime)))
 
-        # then resample component emissions so that the other models can be
-        # resampled
-        for s in self.states_list:
-            s.instantiate_component_emissions()
+        for itr, temp in enumerate(temps):
+            # tell each states object to resample each of its component state chains
+            # (marginalizing out the component emissions)
+            # this call will also delete any instantiated component emissions (in
+            # principle)
+            for s in self.states_list:
+                s.resample(temp_noise=temp)
 
-        # resample component models (this call will not cause any states objects
-        # referenced by self.states_list to resample, but the parameter
-        # resampling involved in resampling these models will need the component
-        # emissions)
-        for c in self.component_models:
-            c.resample()
+            # then resample component emissions so that the other models can be
+            # resampled
+            for s in self.states_list:
+                s.instantiate_component_emissions()
+
+            # resample component models (this call will not cause any states objects
+            # referenced by self.states_list to resample, but the parameter
+            # resampling involved in resampling these models will need the component
+            # emissions)
+            for c in self.component_models:
+                c.resample()
 
     def generate(self,T,keep=True):
         tempstates = \
