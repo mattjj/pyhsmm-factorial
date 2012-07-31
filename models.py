@@ -17,7 +17,7 @@ class factorial(object): # not analogous to any other kind of model, no inherita
     def add_data(self,data,**kwargs):
         # pass in state dimensions so that museqs and varseqs can be maintained
         # kwargs is for changepoints
-        self.states_list.append(pyhsmm.plugins.factorial.factorial_allstates(data=data,component_models=self.component_models,**kwargs))
+        self.states_list.append(pyhsmm.plugins.factorial.states.factorial_allstates(data=data,component_models=self.component_models,**kwargs))
 
     def resample(self,**kwargs):
         # tell each states object to resample each of its component state chains
