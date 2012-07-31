@@ -20,19 +20,20 @@ class factorial_allstates(object):
 
         self.states_list = []
         if data is not None:
+            T = data.shape[0]
             for c in component_models:
                 c.add_factorial_summdata(data=data,**kwargs)
                 self.states_list.append(c.states_list[-1])
-                self.states_list[-1].allstates = self # give a reference to self
+                self.states_list[-1].allstates_obj = self # give a reference to self
         else:
             # generating from the prior
             allobs = np.zeros((len(component_models),T))
-            allstates = np.zeros((len(component_models,T)),dtype=np.int32)
+            allstates = np.zeros((len(component_models),T),dtype=np.int32)
             assert T is not None, 'need to pass in either T (when generating) or data'
             for idx,c in enumerate(component_models):
                 allobs[idx],allstates[idx] = c.generate(T=T,keep=keep,**kwargs)
                 self.states_list.append(c.states_list[-1])
-                self.states_list[-1].allstates = self # give a reference to self
+                self.states_list[-1].allstates_obj = self # give a reference to self
             self.sumobs = allobs.sum(0)
             self.allstates = allstates
             self.allobs = allobs
@@ -40,14 +41,14 @@ class factorial_allstates(object):
         # track museqs and varseqs so they don't have to be rebuilt too much
         # NOTE: component_models must have scalar gaussian observation
         # distributions! this part is one of those that requires it!
-        self.museqs = np.zeros((len(self.component_models),data.shape[0]))
-        self.varseqs = np.zeros((len(self.component_models),data.shape[0]))
+        self.museqs = np.zeros((len(self.component_models),T))
+        self.varseqs = np.zeros((len(self.component_models),T))
         for idx, (c,s) in enumerate(zip(component_models,self.states_list)):
             self.museqs[idx] = c.means[s.stateseq]
             self.varseqs[idx] = c.vars[s.stateseq]
 
         # build eigen codestr
-        self.codestr = base_codestr % {'T':data.shape[0],'K':len(component_models)}
+        self.codestr = base_codestr % {'T':T,'K':len(component_models)}
 
         # just to avoid extra malloc calls... used in
         # self._get_other_mean_var_seqs
@@ -151,7 +152,7 @@ class factorial_component_hsmm_states(pyhsmm.internals.states.hsmm_states_python
         mymeans = self.means # 1D, length state_dim
         myvars = self.vars # 1D, length state_dim
 
-        sumothermeansseq, sumothervarsseq = self.allstates._get_other_mean_var_seqs(self)
+        sumothermeansseq, sumothervarsseq = self.allstates_obj._get_other_mean_var_seqs(self)
         sumothermeansseq.shape = (-1,1) # 2D, T x 1
         sumothervarsseq.shape = (-1,1) # 2D, T x 1
 

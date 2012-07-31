@@ -57,14 +57,14 @@ class factorial(object): # not analogous to any other kind of model, no inherita
                     keep=keep,
                     component_models=self.component_models,
                 )
-        sumobs, allstates = tempstates.sumobs, tempstates.allstates
+        sumobs, allobs, allstates = tempstates.sumobs, tempstates.allobs, tempstates.allstates
 
         if keep:
             tempstates.added_with_generate = True
             tempstates.data = sumobs
             self.states_list.append(tempstates)
 
-        return sumobs, allstates
+        return sumobs, allobs, allstates
 
     def plot(self,color=None): # TODO
         # this is ALWAYS useful
@@ -106,8 +106,8 @@ class factorial_component_hsmm(pyhsmm.models.hsmm):
                 )
         return self._generate(tempstates,keep)
 
-    def add_factorial_sumdata(self,data):
-        if data is not None:
+    def add_factorial_sumdata(self,data=None,T=None):
+        if data is not None: # TODO why would data be None?
             assert data.ndim == 1 or data.ndim == 2
             data = np.reshape(data,(-1,1))
         self.states_list.append(
