@@ -10,18 +10,32 @@ import pyhsmm
 ######################################################
 
 class factorial_allstates(object):
-    def __init__(self,data,component_models,**kwargs):
+    def __init__(self,component_models,data=None,T=None,keep=False,**kwargs):
         # kwargs is for changepoints, passed to
         # component_model.add_factorial_sumdata
+        # keep is used only when calling models.factorial.generate()
 
-        self.data = data # sum data
         self.component_models = component_models
+        self.data = data # sum data (or None if called by a generate method)
 
         self.states_list = []
-        for c in component_models:
-            c.add_factorial_summdata(data,**kwargs)
-            self.states_list.append(c.states_list[-1])
-            self.states_list[-1].allstates = self # give a reference to self
+        if data is not None:
+            for c in component_models:
+                c.add_factorial_summdata(data=data,**kwargs)
+                self.states_list.append(c.states_list[-1])
+                self.states_list[-1].allstates = self # give a reference to self
+        else:
+            # generating from the prior
+            allobs = np.zeros((len(component_models),T))
+            allstates = np.zeros((len(component_models,T)),dtype=np.int32)
+            assert T is not None, 'need to pass in either T (when generating) or data'
+            for idx,c in enumerate(component_models):
+                allobs[idx],allstates[idx] = c.generate(T=T,keep=keep,**kwargs)
+                self.states_list.append(c.states_list[-1])
+                self.states_list[-1].allstates = self # give a reference to self
+            self.sumobs = allobs.sum(0)
+            self.allstates = allstates
+            self.allobs = allobs
 
         # track museqs and varseqs so they don't have to be rebuilt too much
         # NOTE: component_models must have scalar gaussian observation
@@ -51,13 +65,6 @@ class factorial_allstates(object):
             self.museqs[idx] = c.means[s.stateseq]
             self.varseqs[idx] = c.vars[s.stateseq]
 
-    # this method is called by the members of self.states_list; it's them asking
-    # for a sum of part of self.museqs and self.varseqs
-    def _get_other_mean_var_seqs(self,statesobj):
-        statesobjindex = self.states_list.index(statesobj)
-        return np.dot(self.summers[statesobjindex],self.museqs), \
-                np.dot(self.summers[statesobjindex],self.varseqs)
-
     def instantiate_component_emissions(self,temp_noise=0.):
         # get the emissions
         emissions = self._sample_component_emissions(temp_noise)
@@ -65,6 +72,13 @@ class factorial_allstates(object):
         # add the emissions to each comopnent states list
         for e, s in zip(emissions,self.states_list):
             s.data = e
+
+    # this method is called by the members of self.states_list; it's them asking
+    # for a sum of part of self.museqs and self.varseqs
+    def _get_other_mean_var_seqs(self,statesobj):
+        statesobjindex = self.states_list.index(statesobj)
+        return np.dot(self.summers[statesobjindex],self.museqs), \
+                np.dot(self.summers[statesobjindex],self.varseqs)
 
     def _sample_component_emissions_python(self,temp_noise=0.):
         K,T = len(self.component_models), self.data.shape[0]
@@ -106,11 +120,11 @@ class factorial_allstates(object):
 ####################################################################
 
 # the only difference between these and standard hsmm or hmm states classes is
-# that they have a special resample_factorial method for working with the case
-# where component emissions are marginalized out. they also have a no-op
-# resample method, since that method might be called by the resample method in
-# an hsmm or hmm model class and assumes instantiated data
-# essentially, we only want the state sequences to be resampled when a
+# that they have special resample_factorial and get_aBl methods for working with
+# the case where component emissions are marginalized out. they also have a
+# no-op resample method, since that method might be called by the resample
+# method in an hsmm or hmm model class and assumes instantiated data
+# essentially, we only want these state sequences to be resampled when a
 # factorial_allstates objects tells them to be resampled
 
 # NOTE: component_models must have scalar gaussian observation
@@ -172,8 +186,8 @@ class factorial_component_hsmm_states_possiblechangepoints(
     def get_aBL(self,data):
         aBBl = np.zeros((len(self.blocks),self.state_dim))
         aBl = super(factorial_component_hsmm_states_possiblechangepoints,self).get_aBl(data)
-        for idx, (start,end) in enumerate(self.blocks):
-            aBBl[idx] = aBl[start:end].sum(0)
+        for blockt, (start,end) in enumerate(self.blocks):
+            aBBl[blockt] = aBl[start:end].sum(0)
         self.aBBl = aBBl
         return None
 

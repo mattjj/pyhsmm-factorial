@@ -8,7 +8,7 @@ import pyhsmm
 ###################################
 
 
-class factorial(object):
+class factorial(object): # not analogous to any other kind of model, no inheritance
     def __init__(self,component_models):
         self.component_models = component_models # should be a list of factorial_component models
 
@@ -40,9 +40,21 @@ class factorial(object):
         for c in self.component_models:
             c.resample()
 
-    def generate(self,T,keep=True): # TODO TODO
-        # this will be good for synthetic data testing
-        raise NotImplementedError
+    def generate(self,T,keep=True):
+        tempstates = pyhsmm.plugins.factorial.states.factorial_allstates(
+                data=None,
+                T=T,
+                keep=keep,
+                component_models=self.component_models,
+                )
+        sumobs, allstates = tempstates.sumobs, tempstates.allstates
+
+        if keep:
+            tempstates.added_with_generate = True
+            tempstates.data = sumobs
+            self.states_list.append(tempstates)
+
+        return sumobs, allstates
 
     def plot(self,color=None): # TODO
         # this is ALWAYS useful
@@ -66,11 +78,27 @@ class factorial_component_hsmm(pyhsmm.models.hsmm):
                     'Factorial model components must have scalar Gaussian observation distributions!'
             distn.mubin = self.means[idx,...]
             distn.sigmasqbin = self.vars[idx,...]
-        super(factorial_component_hsmm,self).__init__()
+        super(factorial_component_hsmm,self).__init__(**kwargs)
 
-    def add_factorial_sumdata(self,data,**kwargs):
-        assert data.ndim == 1 or data.ndim == 2
-        data = np.reshape(data,(-1,1))
+    def generate(self,T,keep=True):
+        # just like parent method, except uses our own states class
+        tempstates = pyhsmm.plugins.factorial.states.factorial_component_hsmm_states(
+                means=self.means,
+                vars=self.vars,
+                T=T,
+                state_dim=self.state_dim,
+                obs_distns=self.obs_distns,
+                dur_distns=self.dur_distns,
+                transition_distn=self.trans_distn,
+                initial_distn=self.init_state_distn,
+                trunc=self.trunc
+                )
+        return self._generate(tempstates,keep)
+
+    def add_factorial_sumdata(self,data):
+        if data is not None:
+            assert data.ndim == 1 or data.ndim == 2
+            data = np.reshape(data,(-1,1))
         self.states_list.append(
                 pyhsmm.plugins.factorial.states.factorial_component_hsmm_states(
                     data=data,
@@ -83,14 +111,15 @@ class factorial_component_hsmm(pyhsmm.models.hsmm):
                     transition_distn=self.trans_distn,
                     initial_distn=self.init_state_distn,
                     trunc=self.trunc,
-                    **kwargs))
+                    ))
 
 class factorial_component_hsmm_possiblechangepoints(factorial_component_hsmm):
-    def add_factorial_sumdata(self,data,changepoints,**kwargs):
-        assert data.ndim == 1 or data.ndim == 2
-        data = np.reshape(data,(-1,1))
+    def add_factorial_sumdata(self,data,changepoints):
+        if data is not None:
+            assert data.ndim == 1 or data.ndim == 2
+            data = np.reshape(data,(-1,1))
         self.states_list.append(
-                pyhsmm.plugins.factorial.states.factorial_component_hsmm_states(
+                pyhsmm.plugins.factorial.states.factorial_component_hsmm_states_possiblechangepoints(
                     data=data,
                     changepoints=changepoints,
                     means=self.means,
@@ -102,7 +131,24 @@ class factorial_component_hsmm_possiblechangepoints(factorial_component_hsmm):
                     transition_distn=self.trans_distn,
                     initial_distn=self.init_state_distn,
                     trunc=self.trunc,
-                    **kwargs))
+                    ))
+
+    def generate(self,T,keep=True):
+        # just like parent method, except uses our own states class
+        tempstates = \
+                pyhsmm.plugins.factorial.states.factorial_component_hsmm_states_possiblechangepoints(
+                        means=self.means,
+                        vars=self.vars,
+                        T=T,
+                        state_dim=self.state_dim,
+                        obs_distns=self.obs_distns,
+                        dur_distns=self.dur_distns,
+                        transition_distn=self.trans_distn,
+                        initial_distn=self.init_state_distn,
+                        trunc=self.trunc
+                        )
+        return self._generate(tempstates,keep)
+
 
 # TODO hmm versions below here
 
