@@ -10,14 +10,18 @@ import pyhsmm
 ######################################################
 
 class factorial_allstates(object):
-    def __init__(self,data,component_models):
+    def __init__(self,data,component_models,**kwargs):
+        # kwargs is for changepoints, passed to
+        # component_model.add_factorial_sumdata
+
         self.data = data # sum data
         self.component_models = component_models
 
         self.states_list = []
         for c in component_models:
-            c.add_factorial_summdata(data)
+            c.add_factorial_summdata(data,**kwargs)
             self.states_list.append(c.states_list[-1])
+            self.states_list[-1].allstates = self # give a reference to self
 
         # track museqs and varseqs so they don't have to be rebuilt too much
         # NOTE: component_models must have scalar gaussian observation
@@ -25,11 +29,16 @@ class factorial_allstates(object):
         self.museqs = np.zeros((len(self.component_models),data.shape[0]))
         self.varseqs = np.zeros((len(self.component_models),data.shape[0]))
         for idx, (c,s) in enumerate(zip(component_models,self.states_list)):
-            self.museqs[idx] = c.means[s.stateseq]
+            self.museqs[idx] = c.means[s.stateseq] # TODO make the component models keep these refs
             self.varseqs[idx] = c.vars[s.stateseq]
 
         # build eigen codestr
         self.codestr = base_codestr % {'T':data.shape[0],'K':len(component_models)}
+
+        # just to avoid extra malloc calls... used in
+        # self._get_other_mean_var_seqs
+        self.summers = np.ones((len(self.component_models),len(self.component_models))) \
+                - np.eye(len(self.component_models))
 
     def resample(self,**kwargs): # kwargs is for temp stuff
         # tell each chain to resample its statesequence, then update the
@@ -41,6 +50,13 @@ class factorial_allstates(object):
             s.resample_factorial(**kwargs)
             self.museqs[idx] = c.means[s.stateseq]
             self.varseqs[idx] = c.vars[s.stateseq]
+
+    # this method is called by the members of self.states_list; it's them asking
+    # for a sum of part of self.museqs and self.varseqs
+    def _get_other_mean_var_seqs(self,statesobj):
+        statesobjindex = self.states_list.index(statesobj)
+        return np.dot(self.summers[statesobjindex],self.museqs), \
+                np.dot(self.summers[statesobjindex],self.varseqs)
 
     def instantiate_component_emissions(self,temp_noise=0.):
         # get the emissions
@@ -65,7 +81,7 @@ class factorial_allstates(object):
 
         return contributions
 
-    def _sample_component_emissions(self,temp_noise=0.):
+    def _sample_component_emissions_eigen(self,temp_noise=0.):
         K,T = len(self.component_models), self.data.shape[0]
         contributions = np.zeros((T,K))
         G = np.random.randn(T,K)
@@ -80,19 +96,49 @@ class factorial_allstates(object):
 
         return contributions
 
+    _sample_component_emissions = _sample_component_emissions_eigen
+
 
 ####################################################################
 #  used by pyhsmm.plugins.factorial.factorial_component_* classes  #
 ####################################################################
 
+# the only difference between these and standard hsmm or hmm states classes is
+# that they have a special resample_factorial method for working with the case
+# where component emissions are marginalized out. they also have a no-op
+# resample method, since that method might be called by the resample method in
+# an hsmm or hmm model class and assumes instantiated data
+# essentially, we only want the state sequences to be resampled when a
+# factorial_allstates objects tells them to be resampled
+
+# NOTE: component_models must have scalar gaussian observation
+# distributions! the cached means and vars assume it!
+# TODO can add init methods that assert as much
+
 class factorial_component_hsmm_states(pyhsmm.internals.states.hsmm_states_python):
     def resample(self):
-        # left as a no-op so that the states aren't resampled when an hsmm model
-        # containing a reference to these states are resampled
         pass
 
     def resample_factorial(self,temp_noise=0.):
-        raise NotImplementedError
+        self.temp_noise = temp_noise
+        super(factorial_component_hsmm_states,self).resample()
+        del self.temp_noise
+
+    # NOTE: component_models must have scalar gaussian observation
+    # distributions! this code requires it!
+    def get_aBl(self,data):
+        assert data.ndim == 2
+
+        mymeans = self.means # 1D, length state_dim
+        myvars = self.vars # 1D, length state_dim
+
+        sumothermeansseq, sumothervarsseq = self.allstates._get_other_mean_var_seqs(self)
+        sumothermeansseq.shape = (-1,1) # 2D, T x 1
+        sumothervarsseq.shape = (-1,1) # 2D, T x 1
+
+        sigmasq = myvars + sumothervarsseq + self.temp_noise
+
+        return -0.5*(data - sumothermeansseq - mymeans)**2/sigmasq - np.log(np.sqrt(2*np.pi*sigmasq))
 
 class factorial_component_hsmm_states_possiblechangepoints(
         pyhsmm.internals.states.hsmm_states_possiblechangepoints):
@@ -100,15 +146,25 @@ class factorial_component_hsmm_states_possiblechangepoints(
         pass
 
     def resample_factorial(self,temp_noise=0.):
+        self.temp_noise = temp_noise
+        super(factorial_component_hsmm_states,self).resample()
+        del self.temp_noise
+
+    def get_aBL(self,data):
         raise NotImplementedError
 
-
+# TODO below here
 
 class factorial_component_hmm_states(pyhsmm.internals.states.hmm_states_python):
     def resample(self):
         pass
 
-    def resample_factorial(self):
+    def resample_factorial(self,temp_noise=0.):
+        self.temp_noise = temp_noise
+        super(factorial_component_hsmm_states,self).resample()
+        del self.temp_noise
+
+    def get_aBL(self,data):
         raise NotImplementedError
 
 class factorial_component_hmm_states_possiblechangepoints(
@@ -117,6 +173,11 @@ class factorial_component_hmm_states_possiblechangepoints(
         pass
 
     def resample_factorial(self,temp_noise=0.):
+        self.temp_noise = temp_noise
+        super(factorial_component_hsmm_states,self).resample()
+        del self.temp_noise
+
+    def get_aBl(self,data):
         raise NotImplementedError
 
 

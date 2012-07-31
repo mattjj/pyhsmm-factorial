@@ -52,19 +52,30 @@ class factorial(object):
 #  classes for the component models  #
 ######################################
 
+# TODO TODO added states should get a ref to the cached means and vars
+# these things need to handle setting up mubin and sigmabin in the obs_distns
+
 class factorial_component_hsmm(pyhsmm.models.hsmm):
+    means = None
+    vars = None
     def add_factorial_sumdata(self,data,**kwargs):
         self.states_list.append(pyhsmm.plugins.factorial.states.factorial_component_hsmm_states(data,**kwargs))
 
 class factorial_component_hsmm_possiblechangepoints(pyhsmm.models.hsmm):
+    means = None
+    vars = None
     def add_factorial_sumdata(self,data,changepoints,**kwargs):
         self.states_list.append(pyhsmm.plugins.factorial.states.factorial_component_hsmm_states_possiblechangepoints(data,changepoints,**kwargs))
 
 
 class factorial_component_hmm(pyhsmm.models.hmm):
+    means = None
+    vars = None
     def add_factorial_sumdata(self,data,**kwargs):
         self.states_list.append(pyhsmm.plugins.factorial.states.factorial_component_hmm_states(data,**kwargs))
 
 class factorial_component_hmm_possiblechangepoints(pyhsmm.models.hmm):
+    means = None
+    vars = None
     def add_factorial_sumdata(self,data,changepoints,**kwargs):
         self.states_list.append(pyhsmm.plugins.factorial.states.factorial_component_hmm_states_possiblechangepoints(data,changepoints,**kwargs))
