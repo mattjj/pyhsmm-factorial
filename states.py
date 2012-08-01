@@ -202,12 +202,12 @@ class factorial_component_hsmm_states_possiblechangepoints(
         assert 'changepoints' in kwargs, 'must pass in a changepoints argument!'
         self.means = means
         self.vars = vars
-        pyhsmm.internals.states.hsmm_states_possiblechangepoints.__init__(self,**kwargs)
+        pyhsmm.internals.states.hsmm_states_possiblechangepoints.__init__(self,**kwargs) # second parent
 
-    def get_aBL(self,data):
-        aBBl = np.zeros((len(self.blocks),self.state_dim))
-        aBl = super(factorial_component_hsmm_states_possiblechangepoints,self).get_aBl(data)
-        for blockt, (start,end) in enumerate(self.blocks):
+    def get_aBl(self,data):
+        aBBl = np.zeros((len(self.changepoints),self.state_dim))
+        aBl = super(factorial_component_hsmm_states_possiblechangepoints,self).get_aBl(data) # first parent
+        for blockt, (start,end) in enumerate(self.changepoints):
             aBBl[blockt] = aBl[start:end].sum(0)
         self.aBBl = aBBl
         return None
