@@ -3,6 +3,10 @@ import numpy as np
 na = np.newaxis
 import scipy.weave
 
+import pdb
+
+# TODO just changed museqs and varseqs shape, hope they work out now!
+
 import pyhsmm
 
 ######################################################
@@ -16,36 +20,43 @@ class factorial_allstates(object):
         # keep is used only when calling models.factorial.generate()
 
         self.component_models = component_models
-        self.data = data # sum data (or None if called by a generate method)
 
         self.states_list = []
         if data is not None:
+            assert data.ndim == 1 or data.ndim == 2
+            self.data = np.reshape(data,(-1,1))
             T = data.shape[0]
             for c in component_models:
-                c.add_factorial_summdata(data=data,**kwargs)
+                c.add_factorial_sumdata(data=data,**kwargs)
                 self.states_list.append(c.states_list[-1])
                 self.states_list[-1].allstates_obj = self # give a reference to self
+                # the added states object will get its resample() method called, but
+                # since that object doesn't do anything at the moment,
+                # resample_factorial needs to be called here to intialize
+                # s.stateseq
+                self.states_list[-1].generate_states()
         else:
             # generating from the prior
-            allobs = np.zeros((len(component_models),T))
-            allstates = np.zeros((len(component_models),T),dtype=np.int32)
+            allobs = np.zeros((T,len(component_models)))
+            allstates = np.zeros((T,len(component_models)),dtype=np.int32)
             assert T is not None, 'need to pass in either T (when generating) or data'
             for idx,c in enumerate(component_models):
-                allobs[idx],allstates[idx] = c.generate(T=T,keep=keep,**kwargs)
+                allobs[:,idx],allstates[:,idx] = c.generate(T=T,keep=keep,**kwargs)
                 self.states_list.append(c.states_list[-1])
                 self.states_list[-1].allstates_obj = self # give a reference to self
-            self.sumobs = allobs.sum(0)
+            self.sumobs = allobs.sum(1)
+            self.data = np.reshape(self.sumobs,(-1,1))
             self.allstates = allstates
             self.allobs = allobs
 
         # track museqs and varseqs so they don't have to be rebuilt too much
         # NOTE: component_models must have scalar gaussian observation
         # distributions! this part is one of those that requires it!
-        self.museqs = np.zeros((len(self.component_models),T))
-        self.varseqs = np.zeros((len(self.component_models),T))
+        self.museqs = np.zeros((T,len(self.component_models)))
+        self.varseqs = np.zeros((T,len(self.component_models)))
         for idx, (c,s) in enumerate(zip(component_models,self.states_list)):
-            self.museqs[idx] = c.means[s.stateseq]
-            self.varseqs[idx] = c.vars[s.stateseq]
+            self.museqs[:,idx] = c.means[s.stateseq]
+            self.varseqs[:,idx] = c.vars[s.stateseq]
 
         # build eigen codestr
         self.codestr = base_codestr % {'T':T,'K':len(component_models)}
@@ -63,12 +74,12 @@ class factorial_allstates(object):
             if 'data' in s.__dict__:
                 del s.data
             s.resample_factorial(**kwargs)
-            self.museqs[idx] = c.means[s.stateseq]
-            self.varseqs[idx] = c.vars[s.stateseq]
+            self.museqs[:,idx] = c.means[s.stateseq]
+            self.varseqs[:,idx] = c.vars[s.stateseq]
 
     def instantiate_component_emissions(self,temp_noise=0.):
         # get the emissions
-        emissions = self._sample_component_emissions(temp_noise)
+        emissions = self._sample_component_emissions(temp_noise).T.copy() # emissions is now ncomponents x T
 
         # add the emissions to each comopnent states list
         for e, s in zip(emissions,self.states_list):
@@ -78,14 +89,16 @@ class factorial_allstates(object):
     # for a sum of part of self.museqs and self.varseqs
     def _get_other_mean_var_seqs(self,statesobj):
         statesobjindex = self.states_list.index(statesobj)
-        return np.dot(self.summers[statesobjindex],self.museqs), \
-                np.dot(self.summers[statesobjindex],self.varseqs)
+        return self.museqs.dot(self.summers[statesobjindex]), \
+                self.varseqs.dot(self.summers[statesobjindex])
 
     def _sample_component_emissions_python(self,temp_noise=0.):
+        # this algorithm is 'safe' but it computes lots of unnecessary cholesky
+        # factorizations. the eigen code uses a smart custom cholesky downdate
         K,T = len(self.component_models), self.data.shape[0]
         contributions = np.zeros((T,K))
 
-        meanseq = self.meanseqs
+        meanseq = self.museqs
         varseq = self.varseqs
 
         tots = varseq.sum(1)[:,na] + temp_noise
@@ -98,11 +111,12 @@ class factorial_allstates(object):
         return contributions
 
     def _sample_component_emissions_eigen(self,temp_noise=0.):
+        # NOTE: this version does a smart cholesky downdate
         K,T = len(self.component_models), self.data.shape[0]
         contributions = np.zeros((T,K))
         G = np.random.randn(T,K)
 
-        meanseq = self.meanseqs
+        meanseq = self.museqs
         varseq = self.varseqs
 
         tots = varseq.sum(1)[:,na] + temp_noise
@@ -113,7 +127,7 @@ class factorial_allstates(object):
 
         return contributions
 
-    _sample_component_emissions = _sample_component_emissions_eigen
+    _sample_component_emissions = _sample_component_emissions_python # TODO use eigen version
 
 
 ####################################################################
@@ -143,12 +157,14 @@ class factorial_component_hsmm_states(pyhsmm.internals.states.hsmm_states_python
 
     def resample_factorial(self,temp_noise=0.):
         self.temp_noise = temp_noise
+        self.data = object() # a little shady, this is a placeholder to trick parent resample()
         super(factorial_component_hsmm_states,self).resample()
+        del self.data
         del self.temp_noise
 
     # NOTE: component_models must have scalar gaussian observation
     # distributions! this code requires it!
-    def get_aBl(self,data):
+    def get_aBl(self,fakedata):
         mymeans = self.means # 1D, length state_dim
         myvars = self.vars # 1D, length state_dim
 
@@ -158,7 +174,8 @@ class factorial_component_hsmm_states(pyhsmm.internals.states.hsmm_states_python
 
         sigmasq = myvars + sumothervarsseq + self.temp_noise
 
-        return -0.5*(data - sumothermeansseq - mymeans)**2/sigmasq - np.log(np.sqrt(2*np.pi*sigmasq))
+        return -0.5*(self.allstates_obj.data - sumothermeansseq - mymeans)**2/sigmasq \
+                - np.log(np.sqrt(2*np.pi*sigmasq))
 
 class factorial_component_hsmm_states_possiblechangepoints(
         factorial_component_hsmm_states,

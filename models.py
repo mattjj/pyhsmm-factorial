@@ -1,6 +1,10 @@
 from __future__ import division
 import numpy as np
 
+# TODO when should data be 2D vs 1D??
+
+import pdb
+
 import pyhsmm
 
 from pyhsmm.plugins.factorial.states import \
@@ -11,7 +15,6 @@ from pyhsmm.plugins.factorial.states import \
 ###################################
 #  overall problem wrapper class  #
 ###################################
-
 
 class factorial(object): # not analogous to any other kind of model, no inheritance
     def __init__(self,component_models):
@@ -28,11 +31,13 @@ class factorial(object): # not analogous to any other kind of model, no inherita
                     component_models=self.component_models,
                     **kwargs))
 
-    def resample(self,niter=25,max_extra_noise=1000.):
+    def resample(self,max_extra_noise,min_extra_noise,niter=25):
+        # min_extra_noise useful for numerical stability
         # set up a temperature schedule
         temps = np.zeros(niter)
         cutofftime = int(3./4 * len(temps))
         temps[:cutofftime] = max_extra_noise/2 * (1+np.cos(np.linspace(0,np.pi,cutofftime)))
+        temps = np.where(temps < min_extra_noise, min_extra_noise, temps)
 
         for itr, temp in enumerate(temps):
             # tell each states object to resample each of its component state chains
@@ -45,7 +50,7 @@ class factorial(object): # not analogous to any other kind of model, no inherita
             # then resample component emissions so that the other models can be
             # resampled
             for s in self.states_list:
-                s.instantiate_component_emissions()
+                s.instantiate_component_emissions(temp)
 
             # resample component models (this call will not cause any states objects
             # referenced by self.states_list to resample, but the parameter
@@ -93,6 +98,8 @@ class factorial_component_hsmm(pyhsmm.models.hsmm):
                     'Factorial model components must have scalar Gaussian observation distributions!'
             distn.mubin = self.means[idx,...]
             distn.sigmasqbin = self.vars[idx,...]
+            self.means[idx] = distn.mu
+            self.vars[idx] = distn.sigmasq
         super(factorial_component_hsmm,self).__init__(**kwargs)
 
     def generate(self,T,keep=True):
@@ -111,10 +118,9 @@ class factorial_component_hsmm(pyhsmm.models.hsmm):
                 )
         return self._generate(tempstates,keep)
 
-    def add_factorial_sumdata(self,data=None,T=None):
-        if data is not None: # TODO why would data be None?
-            assert data.ndim == 1 or data.ndim == 2
-            data = np.reshape(data,(-1,1))
+    def add_factorial_sumdata(self,data):
+        assert data.ndim == 1 or data.ndim == 2
+        data = np.reshape(data,(-1,1))
         self.states_list.append(
                 factorial_component_hsmm_states(
                     data=data,
@@ -128,6 +134,9 @@ class factorial_component_hsmm(pyhsmm.models.hsmm):
                     initial_distn=self.init_state_distn,
                     trunc=self.trunc,
                     ))
+        # the added states object will get its resample() method called, but
+        # since that object doesn't do anything at the moment,
+        # resample_factorial needs to be called higher up
 
 class factorial_component_hsmm_possiblechangepoints(factorial_component_hsmm):
     def add_factorial_sumdata(self,data,changepoints):
