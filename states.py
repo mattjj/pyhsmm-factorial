@@ -247,8 +247,11 @@ class factorial_component_hsmm_states_possiblechangepoints(
 #  global eigen stuff  #
 ########################
 
+# this simple method could be trouble:
+# http://stackoverflow.com/questions/2632199/how-do-i-get-the-path-of-the-current-executed-file-in-python
 import os
-eigen_codestr_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),'eigen_sample_component_emissions.cpp')
+eigen_codestr_path = \
+        os.path.join(os.path.dirname(os.path.realpath(__file__)),'eigen_sample_component_emissions.cpp')
 with open(eigen_codestr_path,'r') as infile:
     base_codestr = infile.read()
 
