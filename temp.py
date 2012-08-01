@@ -33,7 +33,7 @@ for truemodel in blah.component_models:
     changepoints[-1] = (changepoints[-1][0],T) # because last duration might be censored
     allchangepoints.append(changepoints)
 changepoints = util.union_changepoints(allchangepoints)
-# or i could just estimate them from the data...
+# TODO or i could just estimate them from the data...
 
 newblah = models.factorial([models.factorial_component_hsmm_possiblechangepoints(alpha=6.,gamma=6.,obs_distns=[pyhsmm.observations.scalar_gaussian_nonconj_gelparams(**obshypparams) for hi in range(Nmax)],dur_distns=[pyhsmm.durations.poisson(**durhypparams) for hi in range(Nmax)]) for obshypparams,durhypparams in zip(obshypparamss,durhypparamss)])
 
@@ -43,6 +43,6 @@ for itr in progprint_xrange(5):
     newblah.resample(min_extra_noise=1.,max_extra_noise=100.,niter=50)
 
 plt.figure(); plt.plot(blah.states_list[0].museqs); plt.title('truth')
-plt.figure(); plt.plot(newblah.states_list[0].museqs); plt.title('estimated')
+plt.figure(); plt.plot(newblah.states_list[0].museqs); plt.title('sampled')
 plt.show()
 
