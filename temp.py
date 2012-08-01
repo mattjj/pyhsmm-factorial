@@ -1,18 +1,26 @@
 from __future__ import division
 import numpy as np
 np.seterr(divide='ignore')
+from matplotlib import pyplot as plt
 
-import models, pyhsmm
+import models, pyhsmm, util
+from pyhsmm.util.text import progprint_xrange
 
-from matplotlib import cbook
-def union_changepoints(allchangepoints):
-    startpoints = sorted(set(cbook.flatten(allchangepoints)))
-    return [(startpoint,nextstartpoint) for startpoint,nextstartpoint in zip(startpoints[:-1],startpoints[1:])]
+T = 1000
+Ntrue = 4
+Nmax = 10
 
-T = 500
+obshypparamss = [
+        dict(mu_0=0.,tausq_0=5.,sigmasq_0=1.,nu_0=100.),
+        dict(mu_0=20.,tausq_0=5.,sigmasq_0=2.,nu_0=100.),
+        ]
 
+durhypparamss = [
+        dict(k=10,theta=10.),
+        dict(k=30,theta=10.),
+        ]
 
-blah = models.factorial([models.factorial_component_hsmm(alpha=6.,gamma=6.,obs_distns=[pyhsmm.observations.scalar_gaussian_nonconj_gelparams(mu_0=0.,tausq_0=5.**2,sigmasq_0=0.5,nu_0=100.) for hi in range(4)],dur_distns=[pyhsmm.durations.poisson() for hi in range(4)]) for grr in range(2)])
+blah = models.factorial([models.factorial_component_hsmm(alpha=6.,gamma=6.,obs_distns=[pyhsmm.observations.scalar_gaussian_nonconj_gelparams(**obshypparams) for hi in range(Ntrue)],dur_distns=[pyhsmm.durations.poisson(**durhypparams) for hi in range(Ntrue)]) for obshypparams,durhypparams in zip(obshypparamss,durhypparamss)])
 
 sumobs, allobs, allstates = blah.generate(T)
 
@@ -24,12 +32,17 @@ for truemodel in blah.component_models:
     changepoints = zip(temp[:-1],temp[1:])
     changepoints[-1] = (changepoints[-1][0],T) # because last duration might be censored
     allchangepoints.append(changepoints)
-changepoints = union_changepoints(allchangepoints)
+changepoints = util.union_changepoints(allchangepoints)
 # or i could just estimate them from the data...
 
-newblah = models.factorial([models.factorial_component_hsmm_possiblechangepoints(alpha=6.,gamma=6.,obs_distns=[pyhsmm.observations.scalar_gaussian_nonconj_gelparams(mu_0=0.,tausq_0=10.**2,sigmasq_0=0.5,nu_0=1.) for hi in range(4)],dur_distns=[pyhsmm.durations.poisson() for hi in range(4)]) for grr in range(2)])
+newblah = models.factorial([models.factorial_component_hsmm_possiblechangepoints(alpha=6.,gamma=6.,obs_distns=[pyhsmm.observations.scalar_gaussian_nonconj_gelparams(**obshypparams) for hi in range(Nmax)],dur_distns=[pyhsmm.durations.poisson(**durhypparams) for hi in range(Nmax)]) for obshypparams,durhypparams in zip(obshypparamss,durhypparamss)])
 
 newblah.add_data(data=sumobs,changepoints=changepoints)
 
-newblah.resample(min_extra_noise=1.,max_extra_noise=100.,niter=50)
+for itr in progprint_xrange(5):
+    newblah.resample(min_extra_noise=1.,max_extra_noise=100.,niter=50)
+
+plt.figure(); plt.plot(blah.states_list[0].museqs); plt.title('truth')
+plt.figure(); plt.plot(newblah.states_list[0].museqs); plt.title('estimated')
+plt.show()
 
