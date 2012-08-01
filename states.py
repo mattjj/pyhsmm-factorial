@@ -129,7 +129,7 @@ class factorial_allstates(object):
 
         return contributions
 
-    _sample_component_emissions = _sample_component_emissions_eigen
+    _sample_component_emissions = _sample_component_emissions_eigen # NOTE: set this to choose python or eigen
 
 
 ####################################################################
