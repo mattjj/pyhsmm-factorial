@@ -122,12 +122,14 @@ class factorial_allstates(object):
         tots = varseq.sum(1)[:,na] + temp_noise
         post_meanseq = meanseq + varseq * ((self.data - meanseq.sum(1)[:,na]) / tots)
 
-        scipy.weave.inline(self.codestr,['varseq','meanseq','post_meanseq','G','contributions','temp_noise'],
+        noise_variance = temp_noise
+
+        scipy.weave.inline(self.codestr,['varseq','meanseq','post_meanseq','G','contributions','noise_variance'],
                 headers=['<Eigen/Core>'],include_dirs=['/usr/local/include/eigen3'],extra_compile_args=['-O3'])
 
         return contributions
 
-    _sample_component_emissions = _sample_component_emissions_python # TODO use eigen version
+    _sample_component_emissions = _sample_component_emissions_eigen
 
 
 ####################################################################
