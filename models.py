@@ -16,7 +16,7 @@ from pyhsmm.plugins.factorial.states import \
 #  overall problem wrapper class  #
 ###################################
 
-class factorial(object): # not analogous to any other kind of model, no inheritance
+class factorial(object):
     def __init__(self,component_models):
         self.component_models = component_models # should be a list of factorial_component models
 

@@ -3,10 +3,6 @@ import numpy as np
 na = np.newaxis
 import scipy.weave
 
-import pdb
-
-# TODO just changed museqs and varseqs shape, hope they work out now!
-
 import pyhsmm
 
 ######################################################
