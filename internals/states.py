@@ -9,7 +9,7 @@ import pyhsmm
 #  used by pyhsmm.plugins.factorial.factorial class  #
 ######################################################
 
-class factorial_allstates(object):
+class FactorialStates(object):
     def __init__(self,component_models,data=None,T=None,keep=False,**kwargs):
         # kwargs is for changepoints, passed to
         # component_model.add_factorial_sumdata
@@ -144,11 +144,11 @@ class factorial_allstates(object):
 # distributions! this code, which references the same cached means and vars as
 # the models, requires it!
 
-class factorial_component_hsmm_states(pyhsmm.internals.states.hsmm_states_python):
+class FactorialComponentHSMMStates(pyhsmm.internals.states.hsmm_states_python):
     def __init__(self,means,vars,**kwargs):
         self.means = means
         self.vars = vars
-        super(factorial_component_hsmm_states,self).__init__(**kwargs)
+        super(FactorialComponentHSMMStates,self).__init__(**kwargs)
 
     def resample(self):
         pass
@@ -156,7 +156,7 @@ class factorial_component_hsmm_states(pyhsmm.internals.states.hsmm_states_python
     def resample_factorial(self,temp_noise=0.):
         self.temp_noise = temp_noise
         self.data = object() # a little shady, this is a placeholder to trick parent resample()
-        super(factorial_component_hsmm_states,self).resample()
+        super(FactorialComponentHSMMStates,self).resample()
         del self.data
         del self.temp_noise
 
@@ -175,22 +175,22 @@ class factorial_component_hsmm_states(pyhsmm.internals.states.hsmm_states_python
         return -0.5*(self.allstates_obj.data - sumothermeansseq - mymeans)**2/sigmasq \
                 - np.log(np.sqrt(2*np.pi*sigmasq))
 
-class factorial_component_hsmm_states_possiblechangepoints(
-        factorial_component_hsmm_states,
-        pyhsmm.internals.states.hsmm_states_possiblechangepoints
+class FactorialComponentHSMMStatesPossibleChangepoints(
+        FactorialComponentHSMMStates,
+        pyhsmm.internals.states.HSMMStatesPossibleChangepoints
         ):
     # NOTE: this multiple-inheritance forms the diamond patern:
-    #                   hsmm_states_python
+    #                   HSMMStatesPython
     #                      /            \
     #                     /              \
-    # factorial_component_hsmm_states    hsmm_states_possiblechangepoints
+    # FactorialComponentHSMMStates    HSMMStatesPossibleChangepoints
     #                      \             /
     #                       \           /
     #                        this class
     #
     # you can check by importing and checking thisclassname.__mro__, which will
     # list the two middle levels before the top level
-    # it will make sure factorial_component_hsmm_states's get_aBl is called
+    # it will make sure FactorialComponentHSMMStates's get_aBl is called
     # and hsmm_states_possiblechangepoints's messages_backwards is called
     # still need to explicitly ask for hsmm_states_posschange's init method
 
@@ -202,7 +202,7 @@ class factorial_component_hsmm_states_possiblechangepoints(
 
     def get_aBl(self,data):
         aBBl = np.zeros((len(self.changepoints),self.state_dim))
-        aBl = super(factorial_component_hsmm_states_possiblechangepoints,self).get_aBl(data) # first parent
+        aBl = super(FactorialComponentHSMMStatesPossibleChangepoints,self).get_aBl(data) # first parent
         for blockt, (start,end) in enumerate(self.changepoints):
             aBBl[blockt] = aBl[start:end].sum(0)
         self.aBBl = aBBl

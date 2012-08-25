@@ -1,22 +1,17 @@
 from __future__ import division
 import numpy as np
 
-# TODO when should data be 2D vs 1D??
-
-import pdb
-
 import pyhsmm
 
-from pyhsmm.plugins.factorial.states import \
-        factorial_allstates, \
-        factorial_component_hsmm_states, \
-        factorial_component_hsmm_states_possiblechangepoints
+from internals.states import FactorialStates,\
+        FactorialComponentHSMMStates,\
+        FactorialComponentHSMMStatesPossibleChangepoints
 
 ###################################
 #  overall problem wrapper class  #
 ###################################
 
-class factorial(object):
+class Factorial(pyhsmm.basic.abstractions.ModelGibbsSampling):
     def __init__(self,component_models):
         self.component_models = component_models # should be a list of factorial_component models
 
@@ -26,12 +21,12 @@ class factorial(object):
         # pass in state dimensions so that museqs and varseqs can be maintained
         # kwargs is for changepoints
         self.states_list.append(
-                factorial_allstates(
+                FactorialStates(
                     data=data,
                     component_models=self.component_models,
                     **kwargs))
 
-    def resample(self,max_extra_noise,min_extra_noise,niter=25):
+    def resample_model(self,max_extra_noise,min_extra_noise,niter=25):
         # min_extra_noise useful for numerical stability
         # set up a temperature schedule
         temps = np.zeros(niter)
@@ -61,7 +56,7 @@ class factorial(object):
 
     def generate(self,T,keep=True):
         tempstates = \
-                factorial_allstates(
+                FactorialStates(
                     data=None,
                     T=T,
                     keep=keep,
@@ -88,24 +83,24 @@ class factorial(object):
 # NOTE: component_models must have scalar gaussian observation
 # distributions! this code, which references the same cached means and vars as
 # the states, requires it!
-class factorial_component_hsmm(pyhsmm.models.hsmm):
+class FactorialComponentHSMM(pyhsmm.models.HSMM):
     def __init__(self,**kwargs): # no explicit parameter naming because DRY
         assert 'obs_distns' in kwargs
         obs_distns = kwargs['obs_distns']
         self.means, self.vars = np.zeros(len(obs_distns)), np.zeros(len(obs_distns))
         for idx, distn in enumerate(obs_distns):
-            assert isinstance(distn,pyhsmm.distributions.observations.scalar_gaussian),\
+            assert isinstance(distn,pyhsmm.basic.distributions.ScalarGaussian),\
                     'Factorial model components must have scalar Gaussian observation distributions!'
             distn.mubin = self.means[idx,...]
             distn.sigmasqbin = self.vars[idx,...]
             self.means[idx] = distn.mu
             self.vars[idx] = distn.sigmasq
-        super(factorial_component_hsmm,self).__init__(**kwargs)
+        super(FactorialComponentHSMM,self).__init__(**kwargs)
 
     def generate(self,T,keep=True):
         # just like parent method, except uses our own states class
         tempstates = \
-                factorial_component_hsmm_states(
+                FactorialComponentHSMMStates(
                         means=self.means,
                         vars=self.vars,
                         T=T,
@@ -122,7 +117,7 @@ class factorial_component_hsmm(pyhsmm.models.hsmm):
         assert data.ndim == 1 or data.ndim == 2
         data = np.reshape(data,(-1,1))
         self.states_list.append(
-                factorial_component_hsmm_states(
+                FactorialComponentHSMMStates(
                     data=data,
                     means=self.means,
                     vars=self.vars,
@@ -138,13 +133,13 @@ class factorial_component_hsmm(pyhsmm.models.hsmm):
         # since that object doesn't do anything at the moment,
         # resample_factorial needs to be called higher up
 
-class factorial_component_hsmm_possiblechangepoints(factorial_component_hsmm):
+class FactorialComponentHSMMPossibleChangepoints(FactorialComponentHSMM):
     def add_factorial_sumdata(self,data,changepoints):
         if data is not None:
             assert data.ndim == 1 or data.ndim == 2
             data = np.reshape(data,(-1,1))
         self.states_list.append(
-                factorial_component_hsmm_states_possiblechangepoints(
+                FactorialComponentHSMMStatesPossibleChangepoints(
                     data=data,
                     changepoints=changepoints,
                     means=self.means,
@@ -161,7 +156,7 @@ class factorial_component_hsmm_possiblechangepoints(factorial_component_hsmm):
     def generate(self,T,keep=True):
         # just like parent method, except uses our own states class
         tempstates = \
-                factorial_component_hsmm_states_possiblechangepoints(
+                FactorialComponentHSMMStatesPossibleChangepoints(
                         means=self.means,
                         vars=self.vars,
                         T=T,
