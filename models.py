@@ -52,7 +52,7 @@ class Factorial(pyhsmm.basic.abstractions.ModelGibbsSampling):
             # resampling involved in resampling these models will need the component
             # emissions)
             for c in self.component_models:
-                c.resample()
+                c.resample_model()
 
     def generate(self,T,keep=True):
         tempstates = \

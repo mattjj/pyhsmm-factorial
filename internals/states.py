@@ -144,7 +144,7 @@ class FactorialStates(object):
 # distributions! this code, which references the same cached means and vars as
 # the models, requires it!
 
-class FactorialComponentHSMMStates(pyhsmm.internals.states.hsmm_states_python):
+class FactorialComponentHSMMStates(pyhsmm.internals.states.HSMMStatesPython):
     def __init__(self,means,vars,**kwargs):
         self.means = means
         self.vars = vars
@@ -198,7 +198,7 @@ class FactorialComponentHSMMStatesPossibleChangepoints(
         assert 'changepoints' in kwargs, 'must pass in a changepoints argument!'
         self.means = means
         self.vars = vars
-        pyhsmm.internals.states.hsmm_states_possiblechangepoints.__init__(self,**kwargs) # second parent
+        pyhsmm.internals.states.HSMMStatesPossibleChangepoints.__init__(self,**kwargs) # second parent
 
     def get_aBl(self,data):
         aBBl = np.zeros((len(self.changepoints),self.state_dim))
