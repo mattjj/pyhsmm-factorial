@@ -183,3 +183,55 @@ class FactorialComponentHSMMPossibleChangepoints(FactorialComponentHSMM):
 #     vars = None
 #     def add_factorial_sumdata(self,data,changepoints,**kwargs):
 #         self.states_list.append(pyhsmm.plugins.factorial.states.factorial_component_hmm_states_possiblechangepoints(data,changepoints,**kwargs))
+
+
+class HierarchicalHSMM(pyhsmm.basic.abstractions.ModelGibbsSampling):
+    # maintains one transition distribution and one initial state distribution
+    # but hierarchies of observation and duration distributions
+    def __init__(self,obs_distn_classes,dur_distn_classes):
+        self.obs_distn_classes = obs_distn_classes
+        self.dur_distn_classes = dur_distn_classes
+
+        self._instances = []
+
+        # TODO set global init_state_distn and trans_distn
+
+    def incorporate_instance(self,instance):
+        # edits the instance to have my init_state_distn, my obs distns, my dur
+        # distns, and a resample method that listens to me
+        assert isinstance(instance,pyhsmm.models.HSMM)
+
+        ### it's clobberin time!
+        # when these are called to resample, they will actually call into me
+        instance.init_state_distn = self.init_state_distn
+        instance.trans_distn = self.trans_distn
+
+        instance.obs_distns = [o.new_instance() for o in self.obs_distn_classes]
+        instance.dur_distns = [o.new_instance() for o in self.dur_distn_classes]
+
+        self._instances.append(instance)
+
+    def resample_model(self):
+        raise NotImplementedError
+
+    def _resample_transitions(self):
+        # aggregate states across all instances
+        raise NotImplementedError
+
+    def _resample_initstate(self):
+        raise NotImplementedError
+
+    class _Transitions(pyhsmm.internals.transitions.HDPHSMMTransitions):
+        # override resample to call parent
+        pass
+
+# after training a HierarchicalHSMM for each device, i make a list of
+# FactorialComponentHSMMPossibleChangepoints models, one for each device, using
+# these hierarchical obs_distn_classes and dur_distn_classes new_instance
+# methods to set the obs_distn and dur_distn lists
+# and then just go!
+#
+# hmm not quite... it still needs to refer to me!
+# so can i solve it with the incorporate_instance method?
+# YES if i can successfully clobber the resample method
+# and i can!
