@@ -42,46 +42,20 @@ Nmax = 10
 
 obs_parents = [hierarchical.HierarchicalGaussian(
     0,100**2, # means can be all over the place
-    2**2,5,  # unceratain about within-class variance, but not high
+    2**2,1.1,  # unceratain about within-class variance, but not high
     10,0.01**2,  # obs noise is usually quite low
     ) for state in range(Nmax)]
 
 dur_parents = [hierarchical.HierarchicalNegativeBinomial(1,1,0.1,1,0.1,1,0.1)
         for state in range(Nmax)]
 
-h = models.HierarchicalHSMM(2,6,obs_parents,dur_parents)
+h = models.HierarchicalHSMM(pyhsmm.models.HSMMPossibleChangepoints,2,6,obs_parents,dur_parents)
 
-
-data = datas[0]
-tempmodel = pyhsmm.models.HSMMPossibleChangepoints(alpha=2.,gamma=6.,
-        obs_distns = [pyhsmm.distributions.ScalarGaussianNonconjNIX(**obs_hypparams)
-            for state in range(Nmax)],
-        dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams)
-            for state in range(Nmax)],
-        )
-changepoints = util.indicators_to_changepoints(np.concatenate(((0,),np.abs(np.diff(data)) > 1.)))
-tempmodel.add_data(data,changepoints)
-
-# just the first time, get things into a reasonable spot
-for itr in progprint_xrange(10):
-    tempmodel.resample_model()
-
-# just the first time, get things into a reasonable spot
-h.incorporate_instance(tempmodel)
-for itr in progprint_xrange(20):
-    h.resample_model()
-
-# for data in datas[1:]:
-#     tempmodel = pyhsmm.models.HSMMPossibleChangepoints(alpha=2.,gamma=6.,
-#             obs_distns = [pyhsmm.distributions.ScalarGaussianNonconjNIX(**obs_hypparams)
-#                 for state in range(Nmax)],
-#             dur_distns = [pyhsmm.distributions.PoissonDuration(**dur_hypparams)
-#                 for state in range(Nmax)],
-#             )
-#     changepoints = util.indicators_to_changepoints(np.concatenate(((0,),np.abs(np.diff(data)) > 1.)))
-#     tempmodel.add_data(data,changepoints)
-
-#     h.incorporate_instance(tempmodel)
+for data in datas:
+    changepoints = util.indicators_to_changepoints(np.concatenate(((0,),np.abs(np.diff(data)) > 1.)))
+    h.new_instance().add_data(data,changepoints)
+    for itr in progprint_xrange(20):
+        h._instances[-1].resample_model()
 
 ### resample the whole enchilada
 # for itr in progprint_xrange(10):
