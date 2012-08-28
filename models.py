@@ -1,5 +1,6 @@
 from __future__ import division
 import numpy as np
+import operator
 
 import pyhsmm
 
@@ -185,16 +186,25 @@ class FactorialComponentHSMMPossibleChangepoints(FactorialComponentHSMM):
 #         self.states_list.append(pyhsmm.plugins.factorial.states.factorial_component_hmm_states_possiblechangepoints(data,changepoints,**kwargs))
 
 
-class HierarchicalHSMM(pyhsmm.basic.abstractions.ModelGibbsSampling):
+class HierarchicalHSMM(object):
     # maintains one transition distribution and one initial state distribution
     # but hierarchies of observation and duration distributions
-    def __init__(self,obs_distn_classes,dur_distn_classes):
+    def __init__(self,alpha,gamma,obs_distn_classes,dur_distn_classes):
         self.obs_distn_classes = obs_distn_classes
         self.dur_distn_classes = dur_distn_classes
 
         self._instances = []
 
-        # TODO set global init_state_distn and trans_distn
+        self.init_state_distn = self._InitState(self,
+                state_dim=len(obs_distn_classes))
+        self.trans_distn = self._Transitions(self,
+                alpha=alpha,gamma=gamma,state_dim=len(obs_distn_classes))
+
+        # TODO this bit is weird
+        self.init_state_distn.resample, self.init_state_distn._resample = \
+                self.init_state_distn._resample, self.init_state_distn.resample
+        self.trans_distn.resample, self.trans_distn._resample = \
+                self.trans_distn._resample, self.trans_distn.resample
 
     def incorporate_instance(self,instance):
         # edits the instance to have my init_state_distn, my obs distns, my dur
@@ -211,27 +221,57 @@ class HierarchicalHSMM(pyhsmm.basic.abstractions.ModelGibbsSampling):
 
         self._instances.append(instance)
 
-    def resample_model(self):
+    def new_instance(self):
+        # TODO uses self.hsmm_class to create and return a new model to which
+        # data can be added
+        # this approach should replace the incorporate_instance one
+        # OR should this 
         raise NotImplementedError
+
+    def resample_model(self):
+        # TODO could put resampling of obs distn classes here
+        for model in self._instances:
+            model.resample_model()
 
     def _resample_transitions(self):
-        # aggregate states across all instances
-        raise NotImplementedError
+        # aggregate states across all models and all stateseqs
+        self.trans_distn._resample(reduce(operator.add,
+            [[s.stateseq for s in m.states_list] for m in self._instances]))
 
     def _resample_initstate(self):
-        raise NotImplementedError
+        # aggregate states across all models and all stateseqs
+        self.init_state_distn._resample(reduce(operator.add,
+            [[s.stateseq[0] for s in m.states_list] for m in self._instances]))
 
     class _Transitions(pyhsmm.internals.transitions.HDPHSMMTransitions):
-        # override resample to call parent
-        pass
+        # override resample to call HierarchicalHSMM so that it can use everyone's
+        # statistics
+        def __init__(self,classref,*args,**kwargs):
+            self.classref = classref
+            super(HierarchicalHSMM._Transitions,self).__init__(*args,**kwargs)
 
-# after training a HierarchicalHSMM for each device, i make a list of
-# FactorialComponentHSMMPossibleChangepoints models, one for each device, using
-# these hierarchical obs_distn_classes and dur_distn_classes new_instance
-# methods to set the obs_distn and dur_distn lists
-# and then just go!
-#
-# hmm not quite... it still needs to refer to me!
-# so can i solve it with the incorporate_instance method?
-# YES if i can successfully clobber the resample method
-# and i can!
+        def _resample(self,*args,**kwargs):
+            self.classref._resample_transitions()
+
+        def resample(self,*args,**kwargs):
+            super(HierarchicalHSMM._Transitions,self).resample(*args,**kwargs)
+
+    class _InitState(pyhsmm.internals.initial_state.InitialState):
+        # override resample to call HierarchicalHSMM so that it can use everyone's
+        # statistics
+        def __init__(self,classref,*args,**kwargs):
+            self.classref = classref
+            super(HierarchicalHSMM._InitState,self).__init__(*args,**kwargs)
+
+        def _resample(self,*args,**kwargs):
+            self.classref._resample_initstate()
+
+        def resample(self,*args,**kwargs):
+            super(HierarchicalHSMM._InitState,self).resample(*args,**kwargs)
+
+
+# TODO making transitions 'simlar but not same' is better! plus it'd make the
+# code more symmetrical, with trans/initstate hierarchical objects just like
+# those for obs and dur distns. and HierarchicalHSMM would be super trivial!
+
+# TODO instead of incorporating model, makes sense to ask for new model
