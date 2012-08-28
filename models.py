@@ -189,7 +189,8 @@ class FactorialComponentHSMMPossibleChangepoints(FactorialComponentHSMM):
 class HierarchicalHSMM(object):
     # maintains one transition distribution and one initial state distribution
     # but hierarchies of observation and duration distributions
-    def __init__(self,alpha,gamma,obs_distn_classes,dur_distn_classes):
+    def __init__(self,HSMMclass,alpha,gamma,obs_distn_classes,dur_distn_classes):
+        self.HSMMclass = HSMMclass
         self.obs_distn_classes = obs_distn_classes
         self.dur_distn_classes = dur_distn_classes
 
@@ -206,30 +207,16 @@ class HierarchicalHSMM(object):
         self.trans_distn.resample, self.trans_distn._resample = \
                 self.trans_distn._resample, self.trans_distn.resample
 
-    def incorporate_instance(self,instance):
-        # edits the instance to have my init_state_distn, my obs distns, my dur
-        # distns, and a resample method that listens to me
-        assert isinstance(instance,pyhsmm.models.HSMM)
-
-        ### it's clobberin time!
-        # when these are called to resample, they will actually call into me
-        instance.init_state_distn = self.init_state_distn
-        instance.trans_distn = self.trans_distn
-
-        instance.obs_distns = [o.new_instance() for o in self.obs_distn_classes]
-        instance.dur_distns = [o.new_instance() for o in self.dur_distn_classes]
-
-        self._instances.append(instance)
-
     def new_instance(self):
-        # TODO uses self.hsmm_class to create and return a new model to which
-        # data can be added
-        # this approach should replace the incorporate_instance one
-        # OR should this 
-        raise NotImplementedError
+        self._instances.append(self.HSMMclass(alpha=None,gamma=None,
+            transitions=self.trans_distn,initial_state_distn=self.init_state_distn,
+            obs_distns=[o.new_instance() for o in self.obs_distn_classes],
+            dur_distns=[d.new_instance() for d in self.dur_distn_classes]
+            ))
+        return self._instances[-1]
 
     def resample_model(self):
-        # TODO could put resampling of obs distn classes here
+        # TODO could put resampling of obs/dur distn classes here
         for model in self._instances:
             model.resample_model()
 
