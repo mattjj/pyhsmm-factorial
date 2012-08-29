@@ -42,7 +42,7 @@ Nmax = 10
 
 obs_parents = [hierarchical.HierarchicalGaussian(
     0,100**2, # means can be all over the place
-    2**2,1.1,  # unceratain about within-class variance, but not high
+    2**2,2,  # unceratain about within-class variance, but not high
     10,0.01**2,  # obs noise is usually quite low
     ) for state in range(Nmax)]
 

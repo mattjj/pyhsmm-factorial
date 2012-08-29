@@ -197,7 +197,7 @@ class HierarchicalHSMM(object):
         self._instances = []
 
         self.init_state_distn = self._InitState(self,
-                state_dim=len(obs_distn_classes))
+                state_dim=len(obs_distn_classes),rho=3)
         self.trans_distn = self._Transitions(self,
                 alpha=alpha,gamma=gamma,state_dim=len(obs_distn_classes))
 
@@ -216,9 +216,14 @@ class HierarchicalHSMM(object):
         return self._instances[-1]
 
     def resample_model(self):
-        # TODO could put resampling of obs/dur distn classes here
         for model in self._instances:
             model.resample_model()
+
+        for oc in self.obs_distn_classes:
+            oc.resample()
+
+        for dc in self.dur_distn_classes:
+            dc.resample()
 
     def _resample_transitions(self):
         # aggregate states across all models and all stateseqs
@@ -261,4 +266,3 @@ class HierarchicalHSMM(object):
 # code more symmetrical, with trans/initstate hierarchical objects just like
 # those for obs and dur distns. and HierarchicalHSMM would be super trivial!
 
-# TODO instead of incorporating model, makes sense to ask for new model
