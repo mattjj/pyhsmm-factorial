@@ -185,7 +185,7 @@ class FactorialComponentHSMMPossibleChangepoints(FactorialComponentHSMM):
 #     def add_factorial_sumdata(self,data,changepoints,**kwargs):
 #         self.states_list.append(pyhsmm.plugins.factorial.states.factorial_component_hmm_states_possiblechangepoints(data,changepoints,**kwargs))
 
-
+# TODO make transitions distribution hierarchical
 class HierarchicalHSMM(object):
     # maintains one transition distribution and one initial state distribution
     # but hierarchies of observation and duration distributions
@@ -201,7 +201,7 @@ class HierarchicalHSMM(object):
         self.trans_distn = self._Transitions(self,
                 alpha=alpha,gamma=gamma,state_dim=len(obs_distn_classes))
 
-        # TODO this bit is weird
+        # TODO this coding is a bit is weird
         self.init_state_distn.resample, self.init_state_distn._resample = \
                 self.init_state_distn._resample, self.init_state_distn.resample
         self.trans_distn.resample, self.trans_distn._resample = \
