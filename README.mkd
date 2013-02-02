@@ -1,3 +1,10 @@
 TODO make a demo and readme :)
 
-The code is fully functional though... see http://arxiv.org/pdf/1203.1365v2.pdf
+It's probably a good idea to check out this repository in the 'plugins' subdirectory of [pyhsmm](https://github.com/mattjj/pyhsmm):
+
+```bash
+cd pyhsmm/plugins
+git clone git://github.com/mattjj/pyhsmm-factorial.git factorial
+```
+
+The code is fully functional... see http://arxiv.org/pdf/1203.1365v2.pdf
