@@ -9,7 +9,7 @@ from pyhsmm.util.text import progprint_xrange
 import models
 import util as futil
 
-T = 300
+T = 400
 Nmax = 10
 
 # observation distributions used to generate data
@@ -39,8 +39,8 @@ obshypparamss = [
 
 # duration hyperparameters used both for data generation and inference
 durhypparamss = [
-        dict(alpha_0=10*20,beta_0=10.),
-        dict(alpha_0=10*65,beta_0=10.),
+        dict(alpha_0=20*20,beta_0=20.),
+        dict(alpha_0=20*75,beta_0=20.),
         ]
 
 truemodel = models.Factorial([models.FactorialComponentHSMM(
@@ -65,12 +65,12 @@ posteriormodel = models.Factorial([models.FactorialComponentHSMMPossibleChangepo
         alpha=1.,gamma=4.,
         obs_distns=[pyhsmm.basic.distributions.ScalarGaussianNonconjNIX(**obshypparams) for idx in range(Nmax)],
         dur_distns=[pyhsmm.basic.distributions.PoissonDuration(**durhypparams) for idx in range(Nmax)],
-        trunc=100)
+        trunc=200)
     for obshypparams, durhypparams in zip(obshypparamss,durhypparamss)])
 
 posteriormodel.add_data(data=sumobs,changepoints=changepoints)
 
-nsubiter=50
+nsubiter=25
 for itr in progprint_xrange(10):
     posteriormodel.resample_model(min_extra_noise=0.1,max_extra_noise=100.**2,niter=nsubiter)
 
