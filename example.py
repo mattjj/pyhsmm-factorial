@@ -22,6 +22,7 @@ durhypparamss = [
         ]
 
 truemodel = models.Factorial([models.FactorialComponentHSMM(
+    init_state_concentration=2.,
     alpha=2.,gamma=4.,
     obs_distns=[pyhsmm.basic.distributions.ScalarGaussianNonconjNIX(**obshypparams)
         for hi in range(Ntrue)],
@@ -40,6 +41,7 @@ futil.plot_with_changepoints(sumobs,changepoints)
 
 ### construct posterior model
 posteriormodel = models.Factorial([models.FactorialComponentHSMMPossibleChangepoints(
+    init_state_concentration=2.,
     alpha=2.,gamma=4.,
     obs_distns=[pyhsmm.basic.distributions.ScalarGaussianNonconjNIX(**obshypparams)
         for hi in range(Nmax)],
