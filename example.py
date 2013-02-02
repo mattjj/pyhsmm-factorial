@@ -7,7 +7,7 @@ import models, pyhsmm
 from pyhsmm.util.text import progprint_xrange
 import util as futil
 
-T = 200
+T = 300
 Nmax = 10
 
 # observation distributions used to generate data
@@ -23,19 +23,22 @@ true_obsdistns_chain1 = [
 true_obsdistns_chain2 = [
         pyhsmm.basic.distributions.ScalarGaussianNonconjNIX(
             None,None,None,None,
-            mu=0,sigmasq=0.01),
+            mu=20,sigmasq=0.01),
         pyhsmm.basic.distributions.ScalarGaussianNonconjNIX(
             None,None,None,None,
-            mu=20,sigmasq=0.01),
+            mu=30,sigmasq=0.01),
         ]
 
 # observation hyperparameters used during inference
-obshypparams = dict(mu_0=10.,tausq_0=15.**2,sigmasq_0=0.01,nu_0=100.)
+obshypparamss = [
+        dict(mu_0=5.,tausq_0=10.**2,sigmasq_0=0.01,nu_0=100.),
+        dict(mu_0=25.,tausq_0=10.**2,sigmasq_0=0.01,nu_0=100.),
+        ]
 
 # duration hyperparameters used both for data generation and inference
 durhypparamss = [
-        dict(alpha_0=20*20,beta_0=20.),
-        dict(alpha_0=20*60,beta_0=20.),
+        dict(alpha_0=10*20,beta_0=10.),
+        dict(alpha_0=10*65,beta_0=10.),
         ]
 
 truemodel = models.Factorial([models.FactorialComponentHSMM(
@@ -59,13 +62,14 @@ posteriormodel = models.Factorial([models.FactorialComponentHSMMPossibleChangepo
         init_state_concentration=2.,
         alpha=1.,gamma=4.,
         obs_distns=[pyhsmm.basic.distributions.ScalarGaussianNonconjNIX(**obshypparams) for idx in range(Nmax)],
-        dur_distns=[pyhsmm.basic.distributions.PoissonDuration(**durhypparams) for idx in range(Nmax)])
-    for durhypparams in durhypparamss])
+        dur_distns=[pyhsmm.basic.distributions.PoissonDuration(**durhypparams) for idx in range(Nmax)],
+        trunc=100)
+    for obshypparams, durhypparams in zip(obshypparamss,durhypparamss)])
 
 posteriormodel.add_data(data=sumobs,changepoints=changepoints)
 
 nsubiter=50
-for itr in progprint_xrange(5):
+for itr in progprint_xrange(10):
     posteriormodel.resample_model(min_extra_noise=0.1,max_extra_noise=100.**2,niter=nsubiter)
 
 plt.figure(); plt.plot(posteriormodel.states_list[0].museqs);
