@@ -3,8 +3,10 @@ import numpy as np
 np.seterr(divide='ignore')
 from matplotlib import pyplot as plt
 
-import models, pyhsmm
+import pyhsmm
 from pyhsmm.util.text import progprint_xrange
+
+import models
 import util as futil
 
 T = 300
