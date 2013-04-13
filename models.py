@@ -103,12 +103,8 @@ class FactorialComponentHSMM(pyhsmm.models.HSMM):
                 FactorialComponentHSMMStates(
                         means=self.means,
                         vars=self.vars,
+                        model=self,
                         T=T,
-                        state_dim=self.state_dim,
-                        obs_distns=self.obs_distns,
-                        dur_distns=self.dur_distns,
-                        transition_distn=self.trans_distn,
-                        initial_distn=self.init_state_distn,
                         trunc=self.trunc
                 )
         return self._generate(tempstates,keep)
@@ -118,15 +114,10 @@ class FactorialComponentHSMM(pyhsmm.models.HSMM):
         data = np.reshape(data,(-1,1))
         self.states_list.append(
                 FactorialComponentHSMMStates(
+                    model=self,
                     data=data,
                     means=self.means,
                     vars=self.vars,
-                    T=data.shape[0],
-                    state_dim=len(self.obs_distns),
-                    obs_distns=self.obs_distns,
-                    dur_distns=self.dur_distns,
-                    transition_distn=self.trans_distn,
-                    initial_distn=self.init_state_distn,
                     trunc=self.trunc,
                     ))
         # the added states object will get its resample() method called, but
@@ -144,12 +135,7 @@ class FactorialComponentHSMMPossibleChangepoints(FactorialComponentHSMM):
                     changepoints=changepoints,
                     means=self.means,
                     vars=self.vars,
-                    T=data.shape[0],
-                    state_dim=len(self.obs_distns),
-                    obs_distns=self.obs_distns,
-                    dur_distns=self.dur_distns,
-                    transition_distn=self.trans_distn,
-                    initial_distn=self.init_state_distn,
+                    model=self,
                     trunc=self.trunc,
                     ))
 
@@ -160,11 +146,7 @@ class FactorialComponentHSMMPossibleChangepoints(FactorialComponentHSMM):
                         means=self.means,
                         vars=self.vars,
                         T=T,
-                        state_dim=self.state_dim,
-                        obs_distns=self.obs_distns,
-                        dur_distns=self.dur_distns,
-                        transition_distn=self.trans_distn,
-                        initial_distn=self.init_state_distn,
+                        model=self,
                         trunc=self.trunc
                 )
         return self._generate(tempstates,keep)
