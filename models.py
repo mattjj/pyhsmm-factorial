@@ -89,7 +89,7 @@ class FactorialComponentHSMM(pyhsmm.models.HSMM):
         obs_distns = kwargs['obs_distns']
         self.means, self.vars = np.zeros(len(obs_distns)), np.zeros(len(obs_distns))
         for idx, distn in enumerate(obs_distns):
-            assert isinstance(distn,pyhsmm.basic.distributions.ScalarGaussian),\
+            assert isinstance(distn,pyhsmm.basic.distributions._ScalarGaussianBase),\
                     'Factorial model components must have scalar Gaussian observation distributions!'
             distn.mubin = self.means[idx,...]
             distn.sigmasqbin = self.vars[idx,...]
