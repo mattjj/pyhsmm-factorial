@@ -1,10 +1,18 @@
 TODO make a demo and readme :)
 
-It's probably a good idea to check out this repository in the 'plugins' subdirectory of [pyhsmm](https://github.com/mattjj/pyhsmm):
+NOTE: this code currently only works with a specific version of pyhsmm. This should get things to work:
 
 ```bash
-cd pyhsmm/plugins
-git clone git://github.com/mattjj/pyhsmm-factorial.git factorial
+git clone -b working-factorial https://github.com/mattjj/pyhsmm.git
+cd pyhsmm
+git submodule update --init --recursive
+git clone https://github.com/mattjj/pyhsmm-factorial.git ./plugins/factorial
+# the lines below run an example
+cd ..
+export PYTHONPATH=.:$PYTHONPATH # if you use bash/zsh
+python pyhsmm/plugins/factorial/example.py
 ```
 
-The code is fully functional... see http://arxiv.org/pdf/1203.1365v2.pdf
+The example file's synthetic data tends to result in negative sampled powers.
+
+See http://arxiv.org/pdf/1203.1365v2.pdf.
