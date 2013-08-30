@@ -5,6 +5,9 @@ import scipy.weave
 
 import pyhsmm
 
+import os
+eigen_path = os.path.join(os.path.dirname(__file__),'../../../deps/Eigen3')
+
 ######################################################
 #  used by pyhsmm.plugins.factorial.factorial class  #
 ######################################################
@@ -121,7 +124,7 @@ class FactorialStates(object):
         noise_variance = temp_noise
 
         scipy.weave.inline(self.codestr,['varseq','meanseq','post_meanseq','G','contributions','noise_variance'],
-                headers=['<Eigen/Core>'],include_dirs=['../../../deps/Eigen3'],extra_compile_args=['-O3'],
+                headers=['<Eigen/Core>'],include_dirs=[eigen_path],extra_compile_args=['-O3'],
                 verbose=0)
 
         return contributions
