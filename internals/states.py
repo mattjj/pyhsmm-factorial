@@ -121,7 +121,7 @@ class FactorialStates(object):
         noise_variance = temp_noise
 
         scipy.weave.inline(self.codestr,['varseq','meanseq','post_meanseq','G','contributions','noise_variance'],
-                headers=['<Eigen/Core>'],include_dirs=['/usr/local/include/eigen3'],extra_compile_args=['-O3'],
+                headers=['<Eigen/Core>'],include_dirs=['../../../deps/Eigen3'],extra_compile_args=['-O3'],
                 verbose=0)
 
         return contributions
